@@ -8,11 +8,12 @@ from typing import Any, TypedDict
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolUnionParam
 from dotenv import load_dotenv
+from rich import print
 
 from sys_prompt import SYS_PROMPT
 from docker_shell import IsolatedShell
 
-MAX_TOKENS = 1000
+MAX_TOKENS = 2048
 
 # TODO: make every test run with a new isolated shell
 shell = IsolatedShell(image='ml-env')
@@ -112,17 +113,17 @@ async def run_agent_loop(
                     tool_input = content.input
 
                     # Call the appropriate tool handler
-                    if tool_name == "python_expression":
+                    if tool_name == "run_python":
                         assert (
-                                isinstance(tool_input, dict) and "expression" in tool_input
+                                isinstance(tool_input, dict) and "code" in tool_input
                         )
                         if verbose:
                             print("\nInput:")
                             print("```")
-                            for line in tool_input["expression"].split("\n"):
+                            for line in tool_input["code"].split("\n"):
                                 print(f"{line}")
                             print("```")
-                        result = handler(tool_input["expression"])
+                        result = handler(tool_input["code"])
                         if verbose:
                             print("\nOutput:")
                             print("```")
@@ -186,9 +187,11 @@ async def run_single_test(
         prompt=prompt,
         tools=tools,
         tool_handlers=tool_handlers,
-        max_steps=5,
+        max_steps=20,
         verbose=verbose,
     )
+
+    breakpoint()
 
     success = result == expected_answer
 
