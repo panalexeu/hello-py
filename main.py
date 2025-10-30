@@ -7,13 +7,23 @@ from typing import Any, TypedDict
 
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolUnionParam
+from dotenv import load_dotenv
+
+from sys_prompt import SYS_PROMPT
+from docker_shell import IsolatedShell
 
 MAX_TOKENS = 1000
 
+# TODO: make every test run with a new isolated shell
+shell = IsolatedShell(image='ml-env')
+shell.start()
 
-class PythonExpressionToolResult(TypedDict):
-    result: Any
-    error: str | None
+
+class ShellExecResult(TypedDict):
+    exit_code: str
+    stdout: str
+    stderr: str
+    success: str
 
 
 class SubmitAnswerToolResult(TypedDict):
@@ -21,21 +31,12 @@ class SubmitAnswerToolResult(TypedDict):
     submitted: bool
 
 
-def python_expression_tool(expression: str) -> PythonExpressionToolResult:
-    """
-    Tool that evaluates Python expressions using exec.
-    Use print(...) to emit output; stdout will be captured and returned.
-    """
-    try:
-        namespace = {}
-        stdout = StringIO()
-        with redirect_stdout(stdout):
-            exec(expression, namespace, namespace)
-        return {"result": stdout.getvalue(), "error": None}
-    except KeyboardInterrupt:
-        raise
-    except Exception as e:
-        return {"result": None, "error": str(e)}
+def run_python_code(code: str) -> ShellExecResult:
+    return shell.exec_python(code, timeout=60 * 30)
+
+
+def run_exec(command: str) -> ShellExecResult:
+    return shell.exec(command, timeout=60 * 30)
 
 
 def submit_answer_tool(answer: Any) -> SubmitAnswerToolResult:
@@ -46,12 +47,12 @@ def submit_answer_tool(answer: Any) -> SubmitAnswerToolResult:
 
 
 async def run_agent_loop(
-    prompt: str,
-    tools: list[ToolUnionParam],
-    tool_handlers: dict[str, Callable[..., Any]],
-    max_steps: int = 20,
-    model: str = "claude-haiku-4-5",
-    verbose: bool = True,
+        prompt: str,
+        tools: list[ToolUnionParam],
+        tool_handlers: dict[str, Callable[..., Any]],
+        max_steps: int = 20,
+        model: str = "claude-haiku-4-5",
+        verbose: bool = True,
 ) -> Any | None:
     """
     Runs an agent loop with the given prompt and tools.
@@ -113,7 +114,7 @@ async def run_agent_loop(
                     # Call the appropriate tool handler
                     if tool_name == "python_expression":
                         assert (
-                            isinstance(tool_input, dict) and "expression" in tool_input
+                                isinstance(tool_input, dict) and "expression" in tool_input
                         )
                         if verbose:
                             print("\nInput:")
@@ -170,13 +171,13 @@ async def run_agent_loop(
 
 
 async def run_single_test(
-    run_id: int,
-    num_runs: int,
-    prompt: str,
-    tools: list[ToolUnionParam],
-    tool_handlers: dict[str, Callable[..., Any]],
-    expected_answer: Any,
-    verbose: bool = False,
+        run_id: int,
+        num_runs: int,
+        prompt: str,
+        tools: list[ToolUnionParam],
+        tool_handlers: dict[str, Callable[..., Any]],
+        expected_answer: Any,
+        verbose: bool = False,
 ) -> tuple[int, bool, Any]:
     if verbose:
         print(f"\n\n{'=' * 20} RUN {run_id}/{num_runs} {'=' * 20}")
@@ -202,18 +203,22 @@ async def run_single_test(
 async def main(concurrent: bool = True):
     tools: list[ToolUnionParam] = [
         {
-            "name": "python_expression",
-            "description": "Evaluates a Python expression",
+            "name": "run_python",
+            "description": "Run provided multiline python code",
             "input_schema": {
                 "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "Will be passed to exec(). Use print() to output something. Returns stdout. ",
-                    }
-                },
-                "required": ["expression"],
-            },
+                "properties": {"code": {"description": "Provided multiline python code"}},
+                "required": ["code"]
+            }
+        },
+        {
+            "name": "exec",
+            "description": "Execute provided command in the shell environment",
+            "input_schema": {
+                "type": "object",
+                "properties": {"command": {"description": "A shell command"}},
+                "required": ["command"]
+            }
         },
         {
             "name": "submit_answer",
@@ -223,18 +228,19 @@ async def main(concurrent: bool = True):
                 "properties": {"answer": {"description": "The final answer to submit"}},
                 "required": ["answer"],
             },
-        },
+        }
     ]
 
     tool_handlers = {
-        "python_expression": python_expression_tool,
-        "submit_answer": submit_answer_tool,
+        "run_python": run_python_code,
+        "exec": run_exec,
+        "submit_answer": submit_answer_tool
     }
 
     # Run the test 10 times and track success rate
-    num_runs = 10
+    num_runs = 1
     expected_answer = 8769
-    prompt = "Calculate (2^10 + 3^5) * 7 - 100. Use the python_expression tool and then submit the answer."
+    prompt = SYS_PROMPT
 
     execution_mode = "concurrently" if concurrent else "sequentially"
     print(f"Running {num_runs} test iterations {execution_mode}...")
@@ -249,7 +255,7 @@ async def main(concurrent: bool = True):
             tools=tools,
             tool_handlers=tool_handlers,
             expected_answer=expected_answer,
-            verbose=False,
+            verbose=True,
         )
         for i in range(num_runs)
     ]
@@ -282,5 +288,9 @@ async def main(concurrent: bool = True):
 
 
 if __name__ == "__main__":
+    load_dotenv()  # to load envs from .env
+
     # Set to True for concurrent execution, False for sequential execution
-    asyncio.run(main(concurrent=True))
+    asyncio.run(main(concurrent=False))
+
+    shell.stop()

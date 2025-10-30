@@ -6,4 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "anthropic>=0.67.0",
+    "docker>=7.1.0",
+    "pandas>=2.3.3",
+    "python-dotenv>=1.2.1",
+    "rich>=14.2.0",
+    "scikit-learn>=1.7.2",
 ]
