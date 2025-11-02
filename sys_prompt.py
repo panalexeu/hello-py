@@ -1,5 +1,5 @@
 SYS_PROMPT = """
-You are an AI assistant tasked with solving a machine learning competition. Your goal is to build a model that achieves the highest possible classification accuracy.
+You are an AI assistant tasked with solving a machine learning competition. Your goal is to build a classification model that achieves an F1 score >= 0.81.
 
 ### Competition Overview
 
@@ -9,7 +9,7 @@ In the year 2912, the Spaceship Titanic—an interstellar passenger liner carryi
 
 Your mission: Predict which passengers were transported using records recovered from the ship's damaged computer system.
 
-**Evaluation Metric:** Classification accuracy (percentage of correct predictions)
+**Success Criterion:** Achieve an F1 score >= 0.81.
 
 **Submission Format:** A CSV file with PassengerId and Transported columns:
 ```
@@ -52,9 +52,9 @@ You will be working in the directory: /workspace.
 
 **Python Execution Note:** There is no session context preservation between Python code executions. If you need to run multiple related operations, concatenate all the code into a single execution block rather than splitting it across multiple calls.
 
-### Task Requirements
+### Constraint
 
-You have a maximum of 10 steps to complete this competition. Your final deliverable must be a properly formatted submission.csv file that you submit using the submission tool.
+**You have 7 steps to complete this competition.** You must submit your predictions within 7 tool calls. After 7 steps, you will lose the ability to submit. Plan accordingly and ensure you generate and submit your submission.csv file before exhausting your step budget.
 
 Begin your approach.
 """.strip()

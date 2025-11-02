@@ -281,7 +281,7 @@ async def main(concurrent: bool = True):
     }
 
     # Run the test 10 times and track success rate
-    num_runs = 2
+    num_runs = 10
     prompt = SYS_PROMPT
 
     execution_mode = "concurrently" if concurrent else "sequentially"
@@ -296,7 +296,7 @@ async def main(concurrent: bool = True):
             prompt=prompt,
             tools=tools,
             tool_handlers=tool_handlers,
-            f1_threshold=0.8,
+            f1_threshold=0.81,
             verbose=True,
         )
         for i in range(num_runs)
