@@ -23,8 +23,8 @@ PassengerId,Transported
 ### Dataset Description
 
 **Available Files:**
-- `train.csv` - Training data (~8,700 passengers with known outcomes)
-- `test.csv` - Test data (~4,300 passengers to predict)
+- `train.csv` - Training data (~7,400 passengers with known outcomes)
+- `test.csv` - Test data (~1,300 passengers to predict)
 - `sample_submission.csv` - Submission format template
 
 **Features:**
@@ -54,24 +54,7 @@ You will be working in the directory: /workspace.
 
 ### Task Requirements
 
-You have a maximum of 15 steps to complete this competition. Follow this workflow:
+You have a maximum of 10 steps to complete this competition. Your final deliverable must be a properly formatted submission.csv file that you submit using the submission tool.
 
-1. **Explore the data** - Understand distributions, missing values, and relationships
-2. **Engineer features** - Create meaningful features from existing data
-3. **Preprocess data** - Handle missing values, encode categoricals, scale features
-4. **Train model** - Build and train your classification model
-5. **Generate predictions** - Predict on test.csv
-6. **Create submission** - Format predictions as submission.csv
-7. **Submit** - Finalize by calling the submission tool with your file
-
-### Execution Guidelines
-
-- Be concise and efficient—avoid verbose explanations
-- Focus on meaningful feature engineering
-- Use the provided tools to execute shell commands and Python code
-- Work within the constraints of numpy, pandas, and scikit-learn only
-- Ensure submission.csv matches the required format exactly
-- Submit your final predictions within the 20-step limit
-
-Good luck!
+Begin your approach.
 """.strip()
