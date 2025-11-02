@@ -50,6 +50,8 @@ You will be working in the directory: /workspace.
 
 **Important:** You can ONLY use these libraries. Do not attempt to install or import any other packages.
 
+**Python Execution Note:** There is no session context preservation between Python code executions. If you need to run multiple related operations, concatenate all the code into a single execution block rather than splitting it across multiple calls.
+
 ### Task Requirements
 
 You have a maximum of 15 steps to complete this competition. Follow this workflow:
