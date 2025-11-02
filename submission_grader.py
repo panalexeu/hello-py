@@ -3,11 +3,11 @@ from sklearn.metrics import f1_score
 
 
 def grade_submission(
-        submission_path: str = './submission.csv',
+        submission: str | bytes,
         golden_path: str = './data/test_with_labels.csv'
 ) -> float:
     # Load files
-    sub_df = pd.read_csv(submission_path)
+    sub_df = pd.read_csv(submission)
     gold_df = pd.read_csv(golden_path)
 
     # Merge on PassengerId
@@ -25,5 +25,5 @@ def grade_submission(
 
 
 if __name__ == '__main__':
-    f1_score_result = grade_submission()
+    f1_score_result = grade_submission('./submission.csv')
     print(f"F1 Score: {f1_score_result:.4f}")

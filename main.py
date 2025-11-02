@@ -1,17 +1,17 @@
 import asyncio
 import json
 from collections.abc import Callable
-from contextlib import redirect_stdout
-from io import StringIO
 from typing import Any, TypedDict
 
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolUnionParam
+from docker.errors import DockerException
 from dotenv import load_dotenv
 from rich import print
 
-from sys_prompt import SYS_PROMPT
 from docker_shell import IsolatedShell
+from submission_grader import grade_submission
+from sys_prompt import SYS_PROMPT
 
 MAX_TOKENS = 2048
 
@@ -36,9 +36,9 @@ def run_exec(command: str, shell: IsolatedShell) -> ShellExecResult:
     return shell.exec(command, timeout=60 * 30)
 
 
-def submit_answer_tool(answer: Any) -> SubmitAnswerToolResult:
+def submit_answer_tool(answer: str) -> bool:
     """
-    Tool for submitting the final answer.
+    Tool for submitting the final answer. As answer provide full file path for the submission.
     """
     return {"answer": answer, "submitted": True}
 
@@ -189,7 +189,7 @@ async def run_single_test(
         prompt: str,
         tools: list[ToolUnionParam],
         tool_handlers: dict[str, Callable[..., Any]],
-        expected_answer: Any,
+        f1_threshold: float,
         verbose: bool = False,
 ) -> tuple[int, bool, Any]:
     if verbose:
@@ -201,28 +201,34 @@ async def run_single_test(
             prompt=prompt,
             tools=tools,
             tool_handlers=tool_handlers,
-            max_steps=3,
+            max_steps=20,
             verbose=verbose,
             shell=shell
         )
 
-    breakpoint()
+        try:
+            submission = shell.get_file(result)
+            res = grade_submission(submission)
+        except (FileNotFoundError, DockerException) as _:
+            res = 0  # set res as 0 if model fails to correctly provide submission.csv location
 
-    success = result == expected_answer
+    success = False
+    if res >= f1_threshold:
+        success = True
 
     if success:
-        print(f"✓ Run {run_id}: SUCCESS - Got {result}")
+        print(f"✓ Run {run_id}: SUCCESS - Got f1 score: {res}")
     else:
-        print(f"✗ Run {run_id}: FAILURE - Got {result}, expected {expected_answer}")
+        print(f"✗ Run {run_id}: FAILURE - Got {result}, expected f1 score >= {f1_threshold}")
 
-    return run_id, success, result
+    return run_id, success, res
 
 
 async def main(concurrent: bool = True):
     tools: list[ToolUnionParam] = [
         {
             "name": "run_python",
-            "description": "Run provided multiline python code",
+            "description": "Run provided multiline python code. Use only this tool for running python code",
             "input_schema": {
                 "type": "object",
                 "properties": {"code": {"description": "Provided multiline python code"}},
@@ -257,7 +263,6 @@ async def main(concurrent: bool = True):
 
     # Run the test 10 times and track success rate
     num_runs = 1
-    expected_answer = 8769
     prompt = SYS_PROMPT
 
     execution_mode = "concurrently" if concurrent else "sequentially"
@@ -272,7 +277,7 @@ async def main(concurrent: bool = True):
             prompt=prompt,
             tools=tools,
             tool_handlers=tool_handlers,
-            expected_answer=expected_answer,
+            f1_threshold=0.8,
             verbose=True,
         )
         for i in range(num_runs)
@@ -310,4 +315,3 @@ if __name__ == "__main__":
 
     # Set to True for concurrent execution, False for sequential execution
     asyncio.run(main(concurrent=False))
-
