@@ -15,10 +15,6 @@ from docker_shell import IsolatedShell
 
 MAX_TOKENS = 2048
 
-# TODO: make every test run with a new isolated shell
-shell = IsolatedShell(image='ml-env')
-shell.start()
-
 
 class ShellExecResult(TypedDict):
     exit_code: str
@@ -32,11 +28,11 @@ class SubmitAnswerToolResult(TypedDict):
     submitted: bool
 
 
-def run_python_code(code: str) -> ShellExecResult:
+def run_python_code(code: str, shell: IsolatedShell) -> ShellExecResult:
     return shell.exec_python(code, timeout=60 * 30)
 
 
-def run_exec(command: str) -> ShellExecResult:
+def run_exec(command: str, shell: IsolatedShell) -> ShellExecResult:
     return shell.exec(command, timeout=60 * 30)
 
 
@@ -51,6 +47,7 @@ async def run_agent_loop(
         prompt: str,
         tools: list[ToolUnionParam],
         tool_handlers: dict[str, Callable[..., Any]],
+        shell: IsolatedShell,
         max_steps: int = 20,
         model: str = "claude-haiku-4-5",
         verbose: bool = True,
@@ -113,26 +110,41 @@ async def run_agent_loop(
                     tool_input = content.input
 
                     # Call the appropriate tool handler
-                    if tool_name == "run_python":
-                        assert (
-                                isinstance(tool_input, dict) and "code" in tool_input
-                        )
+                    if tool_name == "submit_answer":
+                        assert isinstance(tool_input, dict) and "answer" in tool_input
+                        result = handler(tool_input["answer"])
+                        submitted_answer = result["answer"]
+
+                    elif tool_name == "run_python":
                         if verbose:
                             print("\nInput:")
                             print("```")
-                            for line in tool_input["code"].split("\n"):
-                                print(f"{line}")
+                            print(tool_input['code'])
                             print("```")
-                        result = handler(tool_input["code"])
+
+                        result = handler(tool_input['code'], shell=shell)
+
                         if verbose:
                             print("\nOutput:")
                             print("```")
                             print(result)
                             print("```")
-                    elif tool_name == "submit_answer":
-                        assert isinstance(tool_input, dict) and "answer" in tool_input
-                        result = handler(tool_input["answer"])
-                        submitted_answer = result["answer"]
+
+                    elif tool_name == "exec":
+                        if verbose:
+                            print("\nInput:")
+                            print("```")
+                            print(tool_input['command'])
+                            print("```")
+
+                        result = handler(tool_input['command'], shell=shell)
+
+                        if verbose:
+                            print("\nOutput:")
+                            print("```")
+                            print(result)
+                            print("```")
+
                     else:
                         # Generic handler call
                         result = (
@@ -183,13 +195,16 @@ async def run_single_test(
     if verbose:
         print(f"\n\n{'=' * 20} RUN {run_id}/{num_runs} {'=' * 20}")
 
-    result = await run_agent_loop(
-        prompt=prompt,
-        tools=tools,
-        tool_handlers=tool_handlers,
-        max_steps=20,
-        verbose=verbose,
-    )
+    # run each agent loop in a new isolated shell
+    with IsolatedShell(image='ml-env') as shell:
+        result = await run_agent_loop(
+            prompt=prompt,
+            tools=tools,
+            tool_handlers=tool_handlers,
+            max_steps=3,
+            verbose=verbose,
+            shell=shell
+        )
 
     breakpoint()
 
@@ -296,4 +311,3 @@ if __name__ == "__main__":
     # Set to True for concurrent execution, False for sequential execution
     asyncio.run(main(concurrent=False))
 
-    shell.stop()
