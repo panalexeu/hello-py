@@ -41,6 +41,8 @@ PassengerId,Transported
 
 ### Environment Constraints
 
+You will be working in the directory: /workspace.
+
 **Available Libraries (pre-installed):**
 - `numpy`
 - `pandas`
@@ -50,7 +52,7 @@ PassengerId,Transported
 
 ### Task Requirements
 
-You have a maximum of 20 steps to complete this competition. Follow this workflow:
+You have a maximum of 15 steps to complete this competition. Follow this workflow:
 
 1. **Explore the data** - Understand distributions, missing values, and relationships
 2. **Engineer features** - Create meaningful features from existing data

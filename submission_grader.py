@@ -1,4 +1,5 @@
 import pandas as pd
+from io import BytesIO
 from sklearn.metrics import f1_score
 
 
@@ -7,7 +8,11 @@ def grade_submission(
         golden_path: str = './data/test_with_labels.csv'
 ) -> float:
     # Load files
-    sub_df = pd.read_csv(submission)
+    if isinstance(submission, bytes):
+        sub_df = pd.read_csv(BytesIO(submission))
+    else:
+        sub_df = pd.read_csv(submission)
+
     gold_df = pd.read_csv(golden_path)
 
     # Merge on PassengerId

@@ -48,7 +48,7 @@ async def run_agent_loop(
         tools: list[ToolUnionParam],
         tool_handlers: dict[str, Callable[..., Any]],
         shell: IsolatedShell,
-        max_steps: int = 20,
+        max_steps: int = 15,
         model: str = "claude-haiku-4-5",
         verbose: bool = True,
 ) -> Any | None:
@@ -201,7 +201,7 @@ async def run_single_test(
             prompt=prompt,
             tools=tools,
             tool_handlers=tool_handlers,
-            max_steps=20,
+            max_steps=15,
             verbose=verbose,
             shell=shell
         )
@@ -210,7 +210,25 @@ async def run_single_test(
             submission = shell.get_file(result)
             res = grade_submission(submission)
         except (FileNotFoundError, DockerException) as _:
-            res = 0  # set res as 0 if model fails to correctly provide submission.csv location
+            if verbose:
+                print('Model did not correctly provide submission path')
+
+            # try to find submission.csv using shell command
+            find_result = shell.exec("find / -name 'submission.csv' -type f 2>/dev/null | head -n 1")
+            path = find_result['stdout'].strip()
+
+            if path and find_result['success']:
+                if verbose:
+                    print('However submission.csv was located in the container')
+
+                breakpoint()
+
+                submission = shell.get_file(path)
+                res = grade_submission(submission)
+
+            else:
+                # If still not found, set res to 0
+                res = 0
 
     success = False
     if res >= f1_threshold:
@@ -262,7 +280,7 @@ async def main(concurrent: bool = True):
     }
 
     # Run the test 10 times and track success rate
-    num_runs = 1
+    num_runs = 10
     prompt = SYS_PROMPT
 
     execution_mode = "concurrently" if concurrent else "sequentially"
