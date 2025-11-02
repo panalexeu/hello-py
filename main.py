@@ -201,43 +201,44 @@ async def run_single_test(
             prompt=prompt,
             tools=tools,
             tool_handlers=tool_handlers,
-            max_steps=15,
+            max_steps=10,
             verbose=verbose,
             shell=shell
         )
 
-        try:
-            submission = shell.get_file(result)
-            res = grade_submission(submission)
-        except (FileNotFoundError, DockerException) as _:
-            if verbose:
-                print('Model did not correctly provide submission path')
-
-            # try to find submission.csv using shell command
-            find_result = shell.exec("find / -name 'submission.csv' -type f 2>/dev/null | head -n 1")
-            path = find_result['stdout'].strip()
-
-            if path and find_result['success']:
-                if verbose:
-                    print('However submission.csv was located in the container')
-
-                breakpoint()
-
-                submission = shell.get_file(path)
+        res = 0
+        success = False
+        # if model provided some result
+        if result:
+            # try to retrieve the submission
+            try:
+                submission = shell.get_file(result)
                 res = grade_submission(submission)
 
-            else:
-                # If still not found, set res to 0
-                res = 0
+            # if submission path was not correctly provided, try to locate the file in container
+            except (FileNotFoundError, DockerException) as _:
+                if verbose:
+                    print('Model did not correctly provide submission path')
 
-    success = False
-    if res >= f1_threshold:
-        success = True
+                # try to find submission.csv using shell command
+                find_result = shell.exec("find / -name 'submission.csv' -type f 2>/dev/null | head -n 1")
+                path = find_result['stdout'].strip()
+
+                # use found file as submission
+                if path and find_result['success']:
+                    if verbose:
+                        print('However submission.csv was located in the container')
+
+                    submission = shell.get_file(path)
+                    res = grade_submission(submission)
+
+            if res >= f1_threshold:
+                success = True
 
     if success:
         print(f"✓ Run {run_id}: SUCCESS - Got f1 score: {res}")
     else:
-        print(f"✗ Run {run_id}: FAILURE - Got {result}, expected f1 score >= {f1_threshold}")
+        print(f"✗ Run {run_id}: FAILURE - Got {res}, expected f1 score >= {f1_threshold}")
 
     return run_id, success, res
 
@@ -280,7 +281,7 @@ async def main(concurrent: bool = True):
     }
 
     # Run the test 10 times and track success rate
-    num_runs = 10
+    num_runs = 2
     prompt = SYS_PROMPT
 
     execution_mode = "concurrently" if concurrent else "sequentially"
@@ -316,7 +317,7 @@ async def main(concurrent: bool = True):
             results.append(result)
 
     # Count successes
-    successes = sum(1 for _, success, _ in results)
+    successes = sum(bool(success) for _, success, _ in results)
 
     # Calculate and display pass rate
     pass_rate = (successes / num_runs) * 100
