@@ -1,3 +1,5 @@
+import io
+import tarfile
 import tempfile
 from pathlib import Path
 from typing import Dict, Optional
@@ -67,6 +69,44 @@ cat > {filename} << 'ENDOFFILE'
 ENDOFFILE
 """
         return self.exec(command)
+
+    def get_file(self, container_path: str) -> bytes:
+        """
+        Get file content from container as bytes.
+
+        Args:
+            container_path: Path to file inside container (e.g., '/tmp/output.txt')
+
+        Returns:
+            File content as bytes
+
+        Raises:
+            RuntimeError: If container not started
+            FileNotFoundError: If file doesn't exist in container
+        """
+        if not self.container:
+            raise RuntimeError("Container not started")
+
+        # Check if file exists
+        result = self.exec(f"test -f {container_path} && echo 'exists'")
+        if 'exists' not in result['stdout']:
+            raise FileNotFoundError(f"File not found in container: {container_path}")
+
+        # Get file as tar archive
+        bits, stat = self.container.get_archive(container_path)
+
+        # Extract file from tar
+        file_obj = io.BytesIO()
+        for chunk in bits:
+            file_obj.write(chunk)
+        file_obj.seek(0)
+
+        # Open tar and extract content
+        with tarfile.open(fileobj=file_obj) as tar:
+            member = tar.getmembers()[0]
+            file_content = tar.extractfile(member).read()
+
+        return file_content
 
     def stop(self):
         """Stop container"""
